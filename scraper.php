@@ -1,4 +1,3 @@
-#!/usr/bin/env php
 <?php
 
 /**
@@ -31,6 +30,11 @@ define('SCRAPER_GIT_PUSH', false);
  */
 define('SCRAPER_BASE', 'USD');
 
+/**
+ * URL to fetch crypto-currencies data from
+ */
+define('CRYPTO_URL', 'http://www.cryptocoincharts.info/v2/api/tradingPairs');
+
 
 if (!defined('JSON_PRETTY_PRINT')) {
 	define('JSON_PRETTY_PRINT', 128);
@@ -54,6 +58,58 @@ class Scraper {
 						}
 					}
 
+					/**
+					 *	Crypto Currencies:
+					 *
+					 *	BTC		- BitCoin
+					 *	LTC		- LiteCoin
+					 *	XRP		- Ripple
+					 *	PPC		- PeerCoin
+					 *	MSC		- MasterCoin
+					 *	NXT		- Nxt
+					 *	NMC		- NameCoin
+					 *	QRK		- QuarkCoin
+					 *	WDC		- WorldCoin
+					 *	MEC		- MegaCoin
+					 *	AUR		- AuroraCoin
+					 *	DOGE	- DogeCoin
+					 *	FTC		- Feathercoin
+					 *	XPM		- Primecoin
+					 */
+
+					// post parameters
+					$post = array('pairs' => 'btc_usd,ltc_usd,ppc_usd,nmc_usd,qrk_usd,wdc_usd,msc_btc,nxt_btc,mec_btc,aur_usd,xrp_usd,doge_usd,ftc_usd,xpm_usd');
+
+					// the request
+					$ch = curl_init();
+					curl_setopt($ch, CURLOPT_URL, CRYPTO_URL);
+					curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+					curl_setopt($ch, CURLOPT_POST, true);
+					curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+					$response = curl_exec($ch);
+					curl_close($ch);
+
+					if ($response && $json = json_decode($response)) {
+						// first fill out currencies based on usd
+						foreach ($json as $item) {
+							list($code, $base) = explode('/', strtoupper($item->id));
+
+							if ($base == 'USD') {
+								$result[$code] = /*doubleval*/(1.0 / $item->price);
+							}
+						}
+
+						// on the second pass fill currencies base on other currencies or on each other
+						foreach ($json as $item) {
+							list($code, $base) = explode('/', strtoupper($item->id));
+
+							if ($base != 'USD' && isset($result[$base])) {
+								$result[$code] = /*doubleval*/(1.0 / ($item->price / $result[$base]));
+							}
+						}
+					}
+
+					// finally, return the result
 					return $result;
 				}
 			}
